@@ -1,0 +1,47 @@
+---
+# tasks file for prerequisites
+- name: Update Alpine repositories to official mirrors
+  ansible.builtin.shell: |
+    sed -i 's|http://mirror.ette.biz/alpine|http://dl-cdn.alpinelinux.org/alpine|g' /etc/apk/repositories
+    apk update
+  become: true
+# Install prerequisites and update hostname
+- name: Install prerequisites and update hostname
+  ansible.builtin.shell: |
+    apk update || exit 1
+    apk add curl iptables bash dbus --no-cache || exit 1
+    swapoff -a || true
+
+    # Check if iptables exists and only start if rules are present
+    if [ -x /sbin/iptables ]; then
+      rc-service iptables start || true
+    fi
+
+    dbus-uuidgen > /etc/machine-id || exit 1
+    echo "{{ hostname }}" > /etc/hostname
+    hostname "{{ hostname }}" || exit 1
+
+    # Update /etc/hosts to reflect correct hostname and IP
+    sed -i "/127.0.1.1/d" /etc/hosts
+    echo "127.0.1.1 {{ hostname }}" >> /etc/hosts
+  become: true
+# Set custom MOTD and update shell prompt
+- name: Set custom MOTD and update shell prompt
+  block:
+    - name: Set custom MOTD
+      ansible.builtin.template:
+        src: motd.j2
+        dest: /etc/motd
+      become: true
+
+    - name: Update default prompt for 'sh' and 'ash'
+      ansible.builtin.lineinfile:
+        path: /etc/profile
+        regexp: "^PS1='\\${HOSTNAME%%.*}:\\$PWD'"
+        line: 'PS1="\\h:\\w\\$ "'
+        create: yes
+      become: true
+
+    - name: Apply the changes to the shell immediately
+      ansible.builtin.shell: source /etc/profile
+      become: true

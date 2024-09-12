@@ -1,0 +1,29 @@
+---
+# Wait for node to be ready in the cluster
+- name: Wait for node to be ready in the cluster
+  ansible.builtin.command: kubectl get nodes -o json
+  register: node_status
+  retries: 12
+  delay: 10
+  until: >
+    node_status.stdout | from_json | json_query('items[*].metadata.name') | select("search", hostvars[inventory_hostname]['hostname']) | list | length > 0
+  delegate_to: "{{ groups['masters'][0] }}"
+  become: true
+
+# Label master nodes
+- name: Label master node
+  ansible.builtin.shell: |
+    kubectl label node {{ hostvars[inventory_hostname]['hostname'] }} node-role.kubernetes.io/master=master --overwrite
+    kubectl label node {{ hostvars[inventory_hostname]['hostname'] }} node-role.kubernetes.io/control-plane=control-plane --overwrite
+    kubectl label node {{ hostvars[inventory_hostname]['hostname'] }} node-role.kubernetes.io/etcd=etcd --overwrite
+  when: inventory_hostname in groups['masters']
+  delegate_to: "{{ groups['masters'][0] }}"
+  become: true
+
+# Label worker nodes
+- name: Label worker node
+  ansible.builtin.shell: |
+    kubectl label node {{ hostvars[inventory_hostname]['hostname'] }} node-role.kubernetes.io/worker=worker --overwrite
+  when: inventory_hostname in groups['workers']
+  delegate_to: "{{ groups['masters'][0] }}"
+  become: true

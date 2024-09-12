@@ -1,0 +1,31 @@
+---
+# Install K3s on the first master
+- name: Install K3s on the first master
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --cluster-init" sh -
+  when: inventory_hostname == groups['masters'][0]
+  become: true
+# Wait for K3s to be ready on the first master
+- name: Wait for K3s token to be available on the first master
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    timeout: 5
+  when: inventory_hostname == groups['masters'][0]
+  become: true
+# Fetch K3s token from the first master
+- name: Fetch K3s token from first master
+  ansible.builtin.command: cat /var/lib/rancher/k3s/server/node-token
+  register: k3s_token
+  when: inventory_hostname == groups['masters'][0]
+  become: true
+# Set the token fact
+- name: Set the token fact
+  ansible.builtin.set_fact:
+    k3s_cluster_token: "{{ k3s_token.stdout }}"
+  when: inventory_hostname == groups['masters'][0]
+# Install K3s on additional masters
+- name: Install K3s on additional masters
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | K3S_TOKEN={{ hostvars[groups['masters'][0]].k3s_cluster_token }} K3S_URL=https://{{ hostvars[groups['masters'][0]].ansible_host }}:6443 sh -s - server
+  when: inventory_hostname != groups['masters'][0]
+  become: true

@@ -1,0 +1,16 @@
+********************************************
+*  Welcome to {{ ansible_hostname | default('N/A') }}
+*  Managed by Ansible
+********************************************
+
+* Hostname: {{ ansible_hostname | default('N/A') }}
+* IP Address: {{ ansible_default_ipv4.address | default('Not Available') }}
+* Load Average (1 min): {{ ansible_load_avg_1 | default('N/A') }}
+* Date: {{ ansible_date_time.date | default('N/A') }}
+* Time: {{ ansible_date_time.time | default('N/A') }}
+* OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+* Kernel: {{ ansible_kernel | default('N/A') }}
+* Architecture: {{ ansible_architecture | default('N/A') }}
+* Ansible Version: {{ ansible_version | default('N/A') }}
+
+Enjoy your session on {{ ansible_hostname | default('N/A') }}!

@@ -1,0 +1,86 @@
+---
+# Stop and remove K3s from the node
+- name: Stop K3s service if running
+  ansible.builtin.shell: |
+    rc-service k3s stop || true
+  become: true
+  ignore_errors: true
+# Uninstall K3s
+- name: Check if K3s uninstall script exists
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s-uninstall.sh
+  register: k3s_uninstall_script
+# Run K3s uninstall script if present
+- name: Run K3s uninstall script if present
+  ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+  when: k3s_uninstall_script.stat.exists
+  become: true
+  ignore_errors: true
+# Remove K3s directories and files
+- name: Identify processes using /var/lib/kubelet
+  ansible.builtin.shell: |
+    fuser -mv /var/lib/kubelet || true
+  register: kubelet_process
+  become: true
+  ignore_errors: true
+# Kill processes using /var/lib/kubelet (if any)
+- name: Kill processes using /var/lib/kubelet (if any)
+  ansible.builtin.shell: |
+    fuser -k /var/lib/kubelet || true
+  when: kubelet_process.stdout != ''
+  become: true
+  ignore_errors: true
+# Forcefully unmount /var/lib/kubelet if it is busy
+- name: Forcefully unmount /var/lib/kubelet if it is busy
+  ansible.builtin.shell: |
+    umount -l /var/lib/kubelet || true
+  become: true
+  ignore_errors: true
+# Remove leftover K3s directories and files
+- name: Remove leftover K3s directories and files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /usr/local/bin/k3s
+    - /var/lib/rancher/k3s
+    - /etc/rancher
+    - /var/lib/kubelet
+    - /etc/systemd/system/k3s.service
+    - /etc/systemd/system/k3s-agent.service
+    - /etc/systemd/system/k3s.service.d
+    - /etc/systemd/system/k3s-agent.service.d
+    - /root/.kube
+    - /usr/local/bin/kubectl
+    - /usr/local/bin/ctr
+    - /usr/local/bin/crictl
+  become: true
+# Remove iptables and network rules
+- name: Cleanup iptables and network rules
+  ansible.builtin.shell: |
+    iptables -F
+    iptables -X
+    iptables -t nat -F
+    iptables -t nat -X
+  become: true
+# Remove machine ID and reset hostname
+- name: Remove machine ID and reset hostname
+  ansible.builtin.shell: |
+    rm -f /etc/machine-id
+    echo "" > /etc/hostname
+  become: true
+# Reboot node
+- name: Reboot node
+  ansible.builtin.shell: reboot
+  become: true
+  async: 1
+  poll: 0
+# Wait for node to be back online
+- name: Wait for node to be back online
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 22
+    delay: 10
+    timeout: 300
+    state: started
+  delegate_to: localhost

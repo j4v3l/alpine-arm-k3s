@@ -1,0 +1,14 @@
+---
+- hosts: masters # This playbook is only for the master nodes
+  roles:
+    - prerequisites # Installs the prerequisites
+    - master # Installs the master nodes
+    - labels # Lables the master and worker nodes
+    # - purge # Delete all the resources created by the playbook
+
+- hosts: workers # This playbook is only for the worker nodes
+  roles:
+    - prerequisites # Installs the prerequisites
+    - worker # Installs the worker nodes
+    - labels # Lables the master and worker nodes
+    # - purge # Delete all the resources created by the playbook

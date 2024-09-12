@@ -1,0 +1,43 @@
+---
+# fetch the K3S token from the master node
+- name: Fetch K3S token from the master node
+  ansible.builtin.command: cat /var/lib/rancher/k3s/server/node-token
+  register: k3s_token
+  delegate_to: "{{ groups['masters'][0] }}"
+  become: true
+
+# - name: Debug the K3S token
+#   ansible.builtin.debug:
+#     var: k3s_token.stdout
+# Set the K3S token as a fact
+- name: Set the K3S token as a fact
+  ansible.builtin.set_fact:
+    k3s_token_value: "{{ k3s_token.stdout }}"
+# check if the worker node is already part of the cluster
+- name: Check if worker node is already part of the cluster
+  ansible.builtin.command: kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers
+  register: node_list
+  delegate_to: "{{ groups['masters'][0] }}"
+  become: true
+
+# - name: Debug the current node list
+#   ansible.builtin.debug:
+#     var: node_list.stdout_lines
+# Skip worker installation if node is already part of the cluster
+- name: Skip worker installation if node is already part of the cluster
+  ansible.builtin.debug:
+    msg: "Node {{ inventory_hostname }} is already part of the cluster, skipping installation."
+  when: inventory_hostname in node_list.stdout_lines
+# Install K3s on worker nodes
+- name: Install K3s on worker nodes
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | K3S_TOKEN={{ k3s_token_value }} K3S_URL=https://{{ hostvars[groups['masters'][0]]['ansible_host'] }}:6443 sh -
+  become: true
+  when: inventory_hostname not in node_list.stdout_lines
+  register: k3s_installation
+  retries: 3
+  delay: 10
+# - name: Debug K3s installation logs
+#   ansible.builtin.debug:
+#     var: k3s_installation
+#   when: k3s_installation is defined
