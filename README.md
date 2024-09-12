@@ -33,9 +33,9 @@ This project helps you set up a K3s cluster using Ansible. It supports all M1 de
 ### How to Run the Project 🏃‍♂️
 1. Clone the repository:
 ```
-git clone https://github.com/your-repo/k3s-cluster-setup.git
+git clone https://github.com/your-repo/alpine-arm-k3s.git
 ```
-2. Change directory to `k3s-cluster-setup`.
+2. Change directory to `alpine-arm-k3s`.
 3. Update the inventory file:
    - Edit the `inventory.ini` file to match your environment.
 4. Run the playbook:
